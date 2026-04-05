@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Claims Pipeline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#080c18;color:#dde4ff;font-family:'DM Mono',monospace;padding:20px 16px;min-height:100vh}
+  ::-webkit-scrollbar{width:3px;height:3px}
+  ::-webkit-scrollbar-thumb{background:#2a3060;border-radius:4px}
+  .card{background:#0d1220;border:1px solid #1a2244;border-radius:14px;padding:18px;margin-bottom:14px}
+  .lbl{color:#3a4a70;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+  .dropzone{border:2px dashed #1e2d55;border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:all 0.2s}
+  .dropzone:hover,.dropzone.drag{border-color:#3a6aff;background:rgba(58,106,255,0.05)}
+  .btn{border:none;border-radius:10px;padding:12px 24px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;cursor:pointer;transition:all 0.15s;letter-spacing:0.5px;width:100%;margin-bottom:10px}
+  .btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.12)}
+  .btn:disabled{opacity:0.35;cursor:not-allowed}
+  .btn-primary{background:linear-gradient(135deg,#3a6aff,#6a3aff);color:#fff}
+  .btn-csv{background:#081808;color:#00e676;border:1px solid #00c853;width:auto;padding:9px 16px;font-size:12px}
+  input[type=text],input[type=password]{width:100%;background:#090d1a;border:1px solid #1a2244;border-radius:8px;padding:10px 12px;color:#dde4ff;font-family:'DM Mono',monospace;font-size:12px;outline:none}
+  input[type=text]:focus,input[type=password]:focus{border-color:#3a6aff}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;color:#3a4a70;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid #1a2244}
+  td{padding:9px 10px;border-bottom:1px solid #0f1628;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .kv{background:#090d1a;border-radius:8px;padding:9px 12px;border:1px solid #141c34}
+  .kv-label{color:#3a4a70;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px}
+  .kv-val{font-size:12px;font-weight:500}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .flag{border-radius:6px;padding:2px 7px;font-size:10px;font-weight:600;white-space:nowrap;border:1px solid}
+  .flag-covered{background:#083a1a;border-color:#00c853;color:#00e676}
+  .flag-red{background:#3a0808;border-color:#ff4444;color:#ff6666}
+  .flag-excluded{background:#3a1a00;border-color:#ff6d00;color:#ff9a3c}
+  .flag-unknown{background:#1a1a2a;border-color:#555;color:#aaa}
+  .error-box{background:#1e0808;border:1px solid #ff3333;border-radius:10px;padding:12px 14px;color:#ff6666;font-size:12px;line-height:1.7;margin-bottom:10px;word-break:break-word}
+  .notes-box{background:#090d1a;border-radius:8px;padding:8px 12px;border:1px solid #141c34;color:#7a9aff;font-size:11px;font-style:italic;margin-top:8px}
+  .hidden{display:none}
+  .spin{display:inline-block;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .header{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+  .dot{width:6px;height:6px;border-radius:50%;background:#3a6aff;box-shadow:0 0 10px #3a6aff}
+  .title{font-family:Syne;font-size:18px;font-weight:800;letter-spacing:-0.3px}
+  .badge{font-size:10px;background:#0f1628;border:1px solid #1a2244;border-radius:20px;padding:2px 8px;color:#3a6aff;letter-spacing:1px}
+  .total-row{display:flex;justify-content:space-between;align-items:center}
+  .total-val{font-family:Syne;font-weight:800;font-size:20px}
+  #preview-img{width:100%;border-radius:8px;max-height:260px;object-fit:contain;background:#05070f}
+  .api-hint{color:#3a4a70;font-size:10px;margin-top:6px;line-height:1.5}
+  .api-hint a{color:#3a6aff;text-decoration:none}
+  details summary{cursor:pointer;color:#883333;font-size:10px;margin-top:8px}
+  pre{color:#663333;font-size:9px;white-space:pre-wrap;word-break:break-all;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="dot"></div>
+  <span class="title">CLAIMS PIPELINE</span>
+  <span class="badge">PHASE 1</span>
+</div>
+
+<!-- API Key -->
+
+<div class="card">
+  <div class="lbl">00 — Gemini API Key</div>
+  <input type="password" id="apiKey" placeholder="Paste your Gemini API key here…"/>
+  <div class="api-hint">
+    Free key → <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> → "Create API Key" → paste above
+  </div>
+</div>
+
+<!-- Upload -->
+
+<div class="card">
+  <div class="lbl">01 — Upload Invoice</div>
+  <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <div style="font-size:28px;margin-bottom:8px">🧾</div>
+    <div style="color:#3a4a70;font-size:12px">Drop invoice or <span style="color:#3a6aff">browse</span></div>
+    <div style="color:#1e2d55;font-size:10px;margin-top:4px">JPG · PNG · WEBP</div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" style="display:none"/>
+</div>
+
+<!-- Preview -->
+
+<div class="card hidden" id="previewCard">
+  <div class="lbl">02 — Preview</div>
+  <img id="preview-img" src="" alt="Invoice preview"/>
+</div>
+
+<!-- Analyze Button -->
+
+<div id="analyzeWrap" class="hidden">
+  <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">⚡ Analyze Invoice</button>
+</div>
+
+<!-- Error -->
+
+<div class="error-box hidden" id="errorBox">
+  <strong>❌ Error:</strong><br/>
+  <span id="errorMsg"></span>
+  <details id="rawDetails" class="hidden">
+    <summary>▸ Raw response</summary>
+    <pre id="rawText"></pre>
+  </details>
+</div>
+
+<!-- Results -->
+
+<div id="results" class="hidden">
+
+  <div class="card">
+    <div class="lbl">03 — Invoice Header</div>
+    <div class="grid2">
+      <div class="kv"><div class="kv-label">Provider</div><div class="kv-val" id="r-provider"></div></div>
+      <div class="kv"><div class="kv-label">Type</div><div class="kv-val" id="r-type"></div></div>
+      <div class="kv"><div class="kv-label">Date</div><div class="kv-val" id="r-date"></div></div>
+      <div class="kv"><div class="kv-label">Patient</div><div class="kv-val" id="r-patient"></div></div>
+    </div>
+    <div class="notes-box hidden" id="r-notes"></div>
+  </div>
+
+  <div class="card" style="overflow-x:auto">
+    <div class="lbl">04 — Line Items</div>
+    <table>
+      <thead><tr><th>#</th><th>Item</th><th>Cat</th><th>Qty</th><th>Amount</th><th>Flag</th></tr></thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card hidden" id="chargesCard">
+    <div class="lbl">05 — Other Charges</div>
+    <div id="chargesBody"></div>
+  </div>
+
+  <div class="card">
+    <div class="total-row">
+      <div>
+        <div style="color:#3a4a70;font-size:11px;margin-bottom:4px">Red Flags: <span id="r-redflags"></span></div>
+        <div class="total-val">Total: <span style="color:#3a6aff" id="r-total"></span></div>
+      </div>
+      <button class="btn btn-csv" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentResult = null;
+let currentFile = null;
+
+const PROMPT = `You are a medical invoice analyst. Analyze this invoice image carefully — it may be handwritten, printed, or a photo of a screen.
+
+Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Start with { and end with }.
+
+{
+  "provider_name": "string",
+  "provider_type": "Pharmacy | Hospital | Lab | Other",
+  "date_of_invoice": "string",
+  "patient_name": "string or null",
+  "items": [
+    {
+      "id": 1,
+      "name": "string",
+      "category": "Drug | Supplement | Vitamin | Mineral | Procedure | Lab | Other",
+      "qty": "string or null",
+      "unit_price": "string or null",
+      "after_discount": "string",
+      "flag": "Covered | Excluded | Red Flag | Unknown"
+    }
+  ],
+  "other_charges": [{ "label": "string", "amount": "string" }],
+  "total_after_discount": "string",
+  "red_flag_count": 0,
+  "notes": "clinical findings e.g. BP, FBS, cholesterol"
+}
+
+Rules: Supplement/Vitamin/Mineral → Red Flag. Standard drug → Covered. Unreadable → UNCLEAR.`;
+
+document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  currentFile = file;
+  hide('results'); hide('errorBox');
+  document.getElementById('preview-img').src = URL.createObjectURL(file);
+  show('previewCard'); show('analyzeWrap');
+}
+
+async function analyze() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showError('Please enter your Gemini API key above.'); return; }
+  if (!currentFile) { showError('Please upload an invoice image.'); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⚙</span> Analyzing…';
+  hide('errorBox'); hide('results');
+
+  try {
+    const base64 = await toBase64(currentFile);
+    const mimeType = currentFile.type || 'image/jpeg';
+
+    const body = {
+      contents: [{
+        parts: [
+          { text: PROMPT },
+          { inline_data: { mime_type: mimeType, data: base64 } }
+        ]
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 1500 }
+    };
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+
+    const raw = await res.text();
+
+    if (!res.ok) {
+      let msg = raw;
+      try { msg = JSON.parse(raw)?.error?.message || raw; } catch {}
+      showError(`API ${res.status}: ${msg}`, raw);
+      return;
+    }
+
+    const data = JSON.parse(raw);
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) { showError('No JSON in response.', text); return; }
+
+    const parsed = JSON.parse(match[0]);
+    currentResult = parsed;
+    renderResult(parsed);
+
+  } catch(e) {
+    showError(e.message || 'Unknown error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Analyze Invoice';
+  }
+}
+
+function renderResult(d) {
+  document.getElementById('r-provider').textContent = d.provider_name || '—';
+  document.getElementById('r-type').textContent = d.provider_type || '—';
+  document.getElementById('r-date').textContent = d.date_of_invoice || '—';
+  document.getElementById('r-patient').textContent = d.patient_name || '—';
+
+  const notesEl = document.getElementById('r-notes');
+  if (d.notes) { notesEl.textContent = '📋 ' + d.notes; show('r-notes'); }
+  else hide('r-notes');
+
+  const tbody = document.getElementById('itemsBody');
+  tbody.innerHTML = '';
+  (d.items || []).forEach(item => {
+    const flagClass = { 'Covered':'flag-covered','Red Flag':'flag-red','Excluded':'flag-excluded','Unknown':'flag-unknown' }[item.flag] || 'flag-unknown';
+    const flagIcon = { 'Covered':'✅','Red Flag':'🔴','Excluded':'❌','Unknown':'❓' }[item.flag] || '❓';
+    const tr = document.createElement('tr');
+    if (item.flag === 'Red Flag') tr.style.background = 'rgba(255,50,50,0.04)';
+    tr.innerHTML = `
+      <td style="color:#3a4a70;width:24px">${item.id}</td>
+      <td style="font-weight:500;max-width:140px">${item.name}</td>
+      <td style="color:#5a6a90;font-size:11px">${item.category}</td>
+      <td style="color:#5a6a90">${item.qty||'—'}</td>
+      <td style="color:#6a9aff;font-weight:500">${item.after_discount}</td>
+      <td><span class="flag ${flagClass}">${flagIcon} ${item.flag}</span></td>`;
+    tbody.appendChild(tr);
+  });
+
+  const charges = d.other_charges || [];
+  if (charges.length) {
+    const cb = document.getElementById('chargesBody');
+    cb.innerHTML = charges.map((c,i) =>
+      `<div style="display:flex;justify-content:space-between;padding:6px 0;${i<charges.length-1?'border-bottom:1px solid #0f1628':''}">
+        <span style="color:#7a8ab0">${c.label}</span>
+        <span style="color:#6a9aff;font-weight:500">${c.amount}</span>
+      </div>`).join('');
+    show('chargesCard');
+  } else hide('chargesCard');
+
+  const rf = d.red_flag_count || 0;
+  document.getElementById('r-redflags').innerHTML = `<span style="color:${rf>0?'#ff5555':'#00e676'}">${rf} items</span>`;
+  document.getElementById('r-total').textContent = d.total_after_discount || '—';
+
+  show('results');
+}
+
+function exportCSV() {
+  if (!currentResult) return;
+  const d = currentResult;
+  const lines = [
+    `Provider,${d.provider_name}`,`Type,${d.provider_type}`,`Date,${d.date_of_invoice}`,
+    `Patient,${d.patient_name||'-'}`,`Notes,"${d.notes||'-'}"`,``,
+    `#,Item,Category,Qty,Unit Price,Amount,Flag`,
+    ...(d.items||[]).map(i=>`${i.id},"${i.name}",${i.category},${i.qty||'-'},${i.unit_price||'-'},${i.after_discount},${i.flag}`),
+    ``,...(d.other_charges||[]).map(c=>`"${c.label}",${c.amount}`),``,
+    `Total,${d.total_after_discount}`,`Red Flags,${d.red_flag_count}`
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines],{type:'text/csv'}));
+  a.download = `claim_${(d.provider_name||'invoice').replace(/\s+/g,'_')}.csv`;
+  a.click();
+}
+
+function toBase64(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function showError(msg, raw) {
+  document.getElementById('errorMsg').textContent = msg;
+  const rd = document.getElementById('rawDetails');
+  if (raw) { document.getElementById('rawText').textContent = raw.slice(0,600); show('rawDetails'); }
+  else hide('rawDetails');
+  show('errorBox');
+}
+
+function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+</script>
+
+</body>
+</html>
